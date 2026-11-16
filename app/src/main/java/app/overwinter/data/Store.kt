@@ -14,9 +14,13 @@ import app.overwinter.domain.Verdict
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.time.LocalDate
 
-/** The station journal and the barograph tape, as two JSON files. Small enough to read whole. */
+/**
+ * The station journal and the barograph tape, as two JSON files. Small enough to read whole. Each file is written aside, forced to the disk, then renamed over the old one, which stays as a spare: a sudden
+ * power-off leaves the old version or the new one, never an empty file.
+ */
 class Store(private val dir: File) {
     private val journalFile get() = File(dir, "journal.json")
     private val baroFile get() = File(dir, "baro.json")
@@ -24,16 +28,15 @@ class Store(private val dir: File) {
     init { dir.mkdirs() }
 
     @Synchronized
-    fun load(): Journal = runCatching { if (journalFile.exists()) parse(JSONObject(journalFile.readText())) else Journal.EMPTY }
-        .getOrElse { Journal.EMPTY }
+    fun load(): Journal = copies(journalFile).firstNotNullOfOrNull { f -> runCatching { parse(JSONObject(f.readText())) }.getOrNull() }
+        ?: Journal.EMPTY
 
     @Synchronized
     fun save(j: Journal) = write(journalFile, json(j).toString())
 
     @Synchronized
     fun baro(): List<Baro> = runCatching {
-        if (!baroFile.exists()) return emptyList()
-        val a = JSONArray(baroFile.readText())
+        val a = copies(baroFile).firstNotNullOfOrNull { f -> runCatching { JSONArray(f.readText()) }.getOrNull() } ?: return emptyList()
         (0 until a.length()).map { a.getJSONArray(it).let { p -> Baro(p.getLong(0), p.getDouble(1).toFloat()) } }
     }.getOrElse { emptyList() }
 
@@ -51,9 +54,13 @@ class Store(private val dir: File) {
 
     private fun write(f: File, text: String) {
         val tmp = File(f.parentFile, f.name + ".tmp")
-        tmp.writeText(text)
-        if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+        FileOutputStream(tmp).use { out -> out.write(text.toByteArray()); out.flush(); out.fd.sync() }
+        if (f.exists()) f.renameTo(File(f.parentFile, f.name + ".bak"))
+        tmp.renameTo(f)   // if this fails, the readers still find the spare or the synced .tmp
     }
+
+    /** The file; if it is missing mid-write, the synced new copy beside it; else the previous version. */
+    private fun copies(f: File) = sequenceOf(f, File(f.parentFile, f.name + ".tmp"), File(f.parentFile, f.name + ".bak")).filter { it.exists() }
 
     companion object {
         fun json(j: Journal): JSONObject = JSONObject().apply {

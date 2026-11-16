@@ -6,6 +6,16 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.1] - 2026-11-16
+
+### Fixed
+- A sudden power-off (a flat battery, a frozen phone) could leave the station journal or the barograph tape empty. Both are now forced to the disk before they replace the old files, the previous version is kept beside each as a spare, and a damaged file falls back to that spare instead of an empty journal.
+
+<!-- tg
+Поправили сохранение: если телефон внезапно выключится (сел аккумулятор, завис), журнал станции больше не может оказаться пустым.
+Записи сохраняются на диск надёжно, а рядом хранится прошлая версия на всякий случай.
+-->
+
 ## [1.0.0] - 2026-11-01
 
 ### Added
