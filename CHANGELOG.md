@@ -6,6 +6,17 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.1.0] - 2026-11-20
+
+### Added
+- Blood pressure: an observation can carry a cuff reading (systolic, diastolic and the pulse if the cuff gave it). It shows in the day's log, and the doctor's PDF gives the average with the range.
+- Sleep as lights-out and reveille: instead of hours, set when you went to bed and got up, a quarter of an hour at a time; the hours are worked out, and the way you chose is kept for the next morning. The doctor's PDF gives the usual bedtime and waking time.
+
+<!-- tg
+Теперь можно записывать давление с тонометра: верхнее, нижнее и пульс. Оно видно в журнале и в отчёте для врача
+Сон можно отмечать временем отбоя и подъёма, а не только часами
+-->
+
 ## [1.0.1] - 2026-11-16
 
 ### Fixed
