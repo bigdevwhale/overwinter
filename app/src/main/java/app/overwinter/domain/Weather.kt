@@ -16,6 +16,10 @@ data class Day(
     val gear: Set<String>,
     val hpa: Float?,
 ) {
+    /** The night's bed and wake times, when they were written down (#3). */
+    val night: Obs? get() = obs.firstOrNull { it.bed != null && it.wake != null }
+    /** Blood pressure readings of the day (#5). */
+    val bp: List<Bp> get() = obs.mapNotNull { it.bp }
     /** How fair the day was, 0 (a storm) … 1 (clear and windy in the good sense). */
     val fair: Float get() = Weather.fair(wind, cloud, pain)
     val sky: Sky get() = Weather.sky(fair)

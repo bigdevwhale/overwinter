@@ -25,6 +25,13 @@ object Words {
 
     fun gear(ctx: Context, id: String, all: List<Gear>): String = all.firstOrNull { it.id == id }?.let { gear(ctx, it) } ?: id
 
+    /** Minutes after midnight as 23:30. */
+    fun clock(min: Int): String { val m = ((min % 1440) + 1440) % 1440; return "%02d:%02d".format(m / 60, m % 60) }
+
+    /** Blood pressure as «АД 120/80, пульс 70». */
+    fun bp(ctx: Context, b: app.overwinter.domain.Bp): String =
+        ctx.getString(R.string.bp_x, b.sys, b.dia) + (b.pulse?.let { ", " + ctx.getString(R.string.pulse_x, it) } ?: "")
+
     fun num(ctx: Context, v: Float, digits: Int = 1): String = String.format(ctx.locale, "%.${digits}f", v)
 
     fun date(ctx: Context, d: LocalDate): String = d.format(DateTimeFormatter.ofPattern(ctx.getString(R.string.date_pattern), ctx.locale))

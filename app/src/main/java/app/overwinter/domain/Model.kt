@@ -42,6 +42,11 @@ data class Obs(
     val note: String = "",
     /** Air pressure at the moment, if the phone has a barometer. */
     val hpa: Float? = null,
+    /** When I went to bed and got up, minutes after midnight (#3); [sleep] is worked out from them. */
+    val bed: Int? = null,
+    val wake: Int? = null,
+    /** Blood pressure from a cuff, if measured (#5). */
+    val bp: Bp? = null,
 ) {
     fun day(zone: ZoneId = ZoneId.systemDefault()): LocalDate = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
     val pain: Int get() = rain.maxOfOrNull { it.level } ?: 0
@@ -86,6 +91,12 @@ data class Journal(
 ) {
     companion object { val EMPTY = Journal() }
 }
+
+/** Blood pressure: systolic over diastolic, mm Hg, and the pulse if the cuff gave it. */
+data class Bp(val sys: Int, val dia: Int, val pulse: Int? = null)
+
+/** Hours between going to bed and getting up, across midnight. */
+fun sleptHours(bed: Int, wake: Int): Float = (((wake - bed) % 1440 + 1440) % 1440) / 60f
 
 /** A barometer reading. */
 data class Baro(val at: Long, val hpa: Float)

@@ -89,6 +89,17 @@ fun ObserveScreen(look: Look, s: Settings, nav: Nav) {
     var vis by remember { mutableIntStateOf(2) }
     var rain by remember { mutableStateOf(mapOf<Int, Int>()) }
     var sleep by remember { mutableFloatStateOf(7.5f) }
+    // Bed and wake times instead of hours (#3): the mode the last night was written in.
+    val lastNight = look.j.obs.filter { it.bed != null && it.wake != null }.maxByOrNull { it.at }
+    var byClock by remember { mutableStateOf(lastNight != null) }
+    var bed by remember { mutableIntStateOf(lastNight?.bed ?: (23 * 60)) }
+    var wake by remember { mutableIntStateOf(lastNight?.wake ?: (7 * 60)) }
+    // Blood pressure, written only if measured (#5).
+    var bpOpen by remember { mutableStateOf(false) }
+    var sys by remember { mutableStateOf("") }
+    var dia by remember { mutableStateOf("") }
+    var pulse by remember { mutableStateOf("") }
+    val bp = sys.toIntOrNull()?.takeIf { it in 50..300 }?.let { sv -> dia.toIntOrNull()?.takeIf { it in 30..200 }?.let { dv -> app.overwinter.domain.Bp(sv, dv, pulse.toIntOrNull()?.takeIf { it in 20..250 }) } }
     var gear by remember { mutableStateOf(setOf<String>()) }
     var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -190,15 +201,44 @@ fun ObserveScreen(look: Look, s: Settings, nav: Nav) {
             if (askSleep) {
                 Card(Modifier.fillMaxWidth()) {
                     Caps(stringResource(R.string.sleep_t))
+                    Gap(8.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip(stringResource(R.string.sleep_hours), !byClock, { byClock = false })
+                        Chip(stringResource(R.string.sleep_clock), byClock, { byClock = true })
+                    }
                     Gap(6.dp)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!byClock) Row(verticalAlignment = Alignment.CenterVertically) {
                         IconBtn(Icons.Rounded.Remove, { sleep = (sleep - .5f).coerceAtLeast(0f) })
                         Text(stringResource(R.string.hours_x, Words.num(ctx, sleep)), style = T.Number, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         IconBtn(Icons.Rounded.Add, { sleep = (sleep + .5f).coerceAtMost(14f) })
+                    } else {
+                        ClockRow(stringResource(R.string.sleep_bed), bed) { bed = it }
+                        ClockRow(stringResource(R.string.sleep_wake), wake) { wake = it }
+                        val h = app.overwinter.domain.sleptHours(bed, wake)
+                        Text(stringResource(R.string.slept_x, Words.num(ctx, h, if (h * 4 % 2 == 0f) 1 else 2)), style = T.Small)
                     }
                 }
                 Gap(10.dp)
             }
+            // Blood pressure from a cuff, kept apart from the sky (#5).
+            Card(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Caps(stringResource(R.string.bp_t), Modifier.weight(1f))
+                    if (!bpOpen) Text(stringResource(R.string.bp_add), style = T.Label.copy(color = C.accent), modifier = Modifier.clickable { bpOpen = true }.padding(4.dp))
+                }
+                if (bpOpen) {
+                    Gap(8.dp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Field(sys, { t -> sys = t.filter(Char::isDigit).take(3) }, Modifier.weight(1f), stringResource(R.string.bp_sys), number = true, style = T.Strong)
+                        Text("/", style = T.Strong)
+                        Field(dia, { t -> dia = t.filter(Char::isDigit).take(3) }, Modifier.weight(1f), stringResource(R.string.bp_dia), number = true, style = T.Strong)
+                        Field(pulse, { t -> pulse = t.filter(Char::isDigit).take(3) }, Modifier.weight(1f), stringResource(R.string.bp_pulse), number = true, style = T.Strong)
+                    }
+                    Gap(4.dp)
+                    Text(stringResource(R.string.bp_b), style = T.Small)
+                }
+            }
+            Gap(10.dp)
             // Instruments.
             Card(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -227,7 +267,9 @@ fun ObserveScreen(look: Look, s: Settings, nav: Nav) {
                 scope.launch {
                     val draft = Obs(
                         id = "", at = System.currentTimeMillis(), slot = slot, wind = wind, cloud = cloud, vis = vis,
-                        rain = rain.map { (z, l) -> Rain(z, l) }, sleep = if (askSleep) sleep else null, gear = gear, note = note.trim(),
+                        rain = rain.map { (z, l) -> Rain(z, l) }, gear = gear, note = note.trim(), bp = bp,
+                        sleep = if (!askSleep) null else if (byClock) app.overwinter.domain.sleptHours(bed, wake) else sleep,
+                        bed = if (askSleep && byClock) bed else null, wake = if (askSleep && byClock) wake else null,
                     )
                     val found = c.observe(draft, s)
                     val saved = c.journal.value.obs.maxByOrNull { it.at } ?: draft
@@ -245,3 +287,13 @@ private fun cycle(m: Map<Int, Int>, z: Int): Map<Int, Int> {
     return if (next == 0) m - z else m + (z to next)
 }
 
+/** A time of day stepped by a quarter of an hour. */
+@Composable
+private fun ClockRow(label: String, min: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = T.Label, modifier = Modifier.width(90.dp))
+        IconBtn(Icons.Rounded.Remove, { onChange(((min - 15) % 1440 + 1440) % 1440) })
+        Text(Words.clock(min), style = T.Number, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        IconBtn(Icons.Rounded.Add, { onChange((min + 15) % 1440) })
+    }
+}

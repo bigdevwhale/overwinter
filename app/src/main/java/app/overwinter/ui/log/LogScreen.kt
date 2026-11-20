@@ -130,6 +130,8 @@ private fun DayCard(d: Day, look: Look, s: Settings) {
                 Text(Words.date(ctx, d.date), style = T.Strong)
                 val bits = buildList {
                     d.sleep?.let { add(ctx.getString(R.string.slept_x, Words.num(ctx, it))) }
+                    d.night?.let { add(Words.clock(it.bed!!) + "–" + Words.clock(it.wake!!)) }
+                    d.bp.forEach { add(Words.bp(ctx, it)) }
                     d.hpa?.let { add(Words.num(ctx, it, 0) + " " + ctx.getString(R.string.hpa)) }
                 }
                 if (bits.isNotEmpty()) Text(bits.joinToString(" · "), style = T.MonoSmall)

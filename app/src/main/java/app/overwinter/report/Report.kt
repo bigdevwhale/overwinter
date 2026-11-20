@@ -89,6 +89,16 @@ object Report {
             val short = days.count { (it.sleep ?: 99f) < 6f }
             wrap(ctx.getString(R.string.pdf_sleep, Words.num(ctx, a), short), text)
         }
+        // Bed and wake times, when kept (#3): the middle night, bedtimes counted from noon so 23:00 and 01:00 sit together.
+        days.mapNotNull { it.night }.takeIf { it.isNotEmpty() }?.let { n ->
+            fun mid(l: List<Int>) = l.sorted()[l.size / 2]
+            wrap(ctx.getString(R.string.pdf_night, Words.clock(mid(n.map { (it.bed!! + 720) % 1440 }) - 720), Words.clock(mid(n.map { it.wake!! }))), text)
+        }
+        // Blood pressure (#5).
+        days.flatMap { it.bp }.takeIf { it.isNotEmpty() }?.let { l ->
+            wrap(ctx.getString(R.string.pdf_bp, l.map { it.sys }.average().toInt(), l.map { it.dia }.average().toInt(), l.size,
+                l.minOf { it.sys }, l.maxOf { it.sys }, l.minOf { it.dia }, l.maxOf { it.dia }), text)
+        }
         y += 8f
 
         // Pain by zone.
@@ -169,7 +179,7 @@ object Report {
                 Words.num(ctx, d.vis),
                 d.obs.flatMap { it.rain }.groupBy { it.zone }.map { (z, l) -> zones[z] + " " + l.maxOf { it.level } }.joinToString(", ").ifEmpty { "—" },
                 d.sleep?.let { Words.num(ctx, it) } ?: "—",
-                (d.gear.map { Words.gear(ctx, it, look.j.gear) } + d.obs.map { it.note }.filter { it.isNotEmpty() }).joinToString("; ").ifEmpty { "" },
+                (d.bp.map { Words.bp(ctx, it) } + d.gear.map { Words.gear(ctx, it, look.j.gear) } + d.obs.map { it.note }.filter { it.isNotEmpty() }).joinToString("; ").ifEmpty { "" },
             ), cell)
         }
         page?.let { doc.finishPage(it) }

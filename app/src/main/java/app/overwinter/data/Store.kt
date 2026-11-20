@@ -84,6 +84,9 @@ class Store(private val dir: File) {
             put("gear", JSONArray(o.gear.toList()))
             if (o.note.isNotEmpty()) put("note", o.note)
             o.hpa?.let { put("hpa", it.toDouble()) }
+            o.bed?.let { put("bed", it) }
+            o.wake?.let { put("wake", it) }
+            o.bp?.let { b -> put("bp", JSONArray().put(b.sys).put(b.dia).apply { b.pulse?.let { put(it) } }) }
         }
 
         private fun <T> JSONArray?.list(f: (Int) -> T?): List<T> = if (this == null) emptyList() else (0 until length()).mapNotNull { runCatching { f(it) }.getOrNull() }
@@ -117,6 +120,9 @@ class Store(private val dir: File) {
             gear = o.optJSONArray("gear").list { i -> o.getJSONArray("gear").getString(i) }.toSet(),
             note = o.optString("note"),
             hpa = if (o.has("hpa")) o.getDouble("hpa").toFloat() else null,
+            bed = if (o.has("bed")) o.getInt("bed") else null,
+            wake = if (o.has("wake")) o.getInt("wake") else null,
+            bp = o.optJSONArray("bp")?.let { a -> app.overwinter.domain.Bp(a.getInt(0), a.getInt(1), if (a.length() > 2) a.getInt(2) else null) },
         )
     }
 }
